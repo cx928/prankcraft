@@ -52,6 +52,7 @@ probe-stdout.txt
 probe-stderr.txt
 run.out
 *.log
+.prankcraft-harness.pid
 
 # Keep the shipped jar, ignore everything else in dist
 dist/*
