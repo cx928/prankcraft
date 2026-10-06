@@ -1,0 +1,59 @@
+# Build output
+target/
+build/
+out/
+*.class
+
+# Gradle
+.gradle/
+gradle-app.setting
+gradlew
+gradlew.bat
+!gradle/wrapper/gradle-wrapper.properties
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.settings/
+.classpath
+.project
+nbproject/
+
+# OS
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# Server runtime - never commit a live server's state
+logs/
+world/
+world_nether/
+world_the_end/
+plugins/
+mods/
+config/
+libraries/
+versions/
+cache/
+usercache.json
+banned-ips.json
+banned-players.json
+ops.json
+whitelist.json
+eula.txt
+server.properties
+
+# Local test scratch
+probe-report.json
+probe-stdout.txt
+probe-stderr.txt
+run.out
+*.log
+
+# Keep the shipped jar, ignore everything else in dist
+dist/*
+!dist/*.jar
+!dist/README.md

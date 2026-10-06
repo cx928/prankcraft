@@ -1,0 +1,177 @@
+# PrankCraft configuration
+# ---------------------------------------------------------------------------
+# This plugin is built for consensual, cosmetic pranks on a server you operate.
+# Two facts are worth knowing before you change anything below:
+#
+#   1. Nothing here can move, damage, rob or take over another player. Effects are
+#      packets, particles, sounds and fake entities only. Fake TNT never really
+#      explodes - see prank-tnt below.
+#   2. The consent gate is what separates "prank" from "harassment". If you turn it
+#      off, your players have no way to opt out, and the audit log becomes the only
+#      record of what happened. Think about that before flipping the switch.
+# ---------------------------------------------------------------------------
+
+consent:
+  # Master gate: a target must have opted in (/prank allow <player>) before any effect fires.
+  require-consent: true
+  # Stricter gate: the target must have allowed *that specific* prankster, not just opted in.
+  # Recommended for public servers; set false for a private friends-only server.
+  require-per-target-consent: true
+  # Players with prankcraft.consent.bypass can never be targeted, even by an operator force.
+  # Grant it to anyone who asks not to be involved.
+
+audit:
+  enabled: true
+  # Mirror every fired effect to the server console.
+  console: true
+  # Append to plugins/PrankCraft/audit-YYYY-MM-DD.log
+  file: true
+
+messages:
+  # Tell staff holding prankcraft.notify when an effect fires.
+  broadcast-to-staff: true
+
+# ---------------------------------------------------------------------------
+# Fake TNT world
+# ---------------------------------------------------------------------------
+prank-tnt:
+  # How many TNT blocks appear around the target.
+  count: 5
+  # How far out to look for believable floor spots (in blocks).
+  radius: 3
+  # Fuse length in ticks (20 ticks = 1 second).
+  fuse-ticks: 40
+  # Spawn real (but permanently unlit) primed-TNT entities so vanilla renders the
+  # flashing TNT perfectly. Their fuse is pinned every tick and their explosion is
+  # cancelled, so they can never detonate. Set false for a 100% packet-only version
+  # that no anti-cheat will ever notice.
+  prime-entity: true
+  # Play a click right before the boom.
+  throttle-flash: true
+  # Fire automatically when the fuse runs out. Set false to hold the trick open
+  # until an operator runs /prankcraft tnt fire <player>.
+  auto-detonate: true
+  # Send the real blocks back to the client at the moment of detonation.
+  restore-blocks-on-detonate: true
+  # Explosion particle radius and density.
+  particle-radius: 24.0
+  particle-count: 6
+  # Safety sweep: how often (in ticks) to re-pin the fuse on our display entities.
+  # Lower = safer, marginally more work. Do not raise this above 5.
+  guard-period-ticks: 2
+  # How often the trick advances. 2 is smooth and cheap.
+  tick-period-ticks: 2
+
+# ---------------------------------------------------------------------------
+# Prank effects
+# Each section supports:
+#   enabled           - master switch for the effect
+#   duration-seconds  - when the effect is cleaned up (0 = run until it finishes)
+# ---------------------------------------------------------------------------
+pranks:
+
+  jumpscare:
+    enabled: true
+    duration-seconds: 2
+    # Faint particle burst in front of the target.
+    particles: true
+    # Play a sound. Candidates are tried in order, so this works on 1.16 through current.
+    sound: ENTITY_ENDERMAN_SCREAM
+
+  fake-tnt:
+    enabled: true
+    # 0 = let the fake-TNT sequence manage its own timing.
+    duration-seconds: 0
+
+  phantom-footsteps:
+    enabled: true
+    duration-seconds: 12
+    # How often the invisible footsteps play, in ticks.
+    interval-ticks: 18
+    sound: BLOCK_STONE_STEP
+    volume: 0.9
+    pitch: 0.8
+
+  screen-shake:
+    enabled: true
+    duration-seconds: 2
+    # Number of shake bursts.
+    pulses: 6
+    # Ticks between pulses.
+    interval-ticks: 3
+    # Vertical offset of each pulse, in title pixels.
+    strength: 12
+
+  fake-chat:
+    enabled: true
+    duration-seconds: 0
+    # Broadcast a line that looks like the target said it. Other players see a normal
+    # chat message; the target sees nothing. Keep these silly, not defamatory - this
+    # is the one effect that can genuinely mislead people about what someone said.
+    messages:
+      - "anyone got spare diamonds lol"
+      - "brb my cat is on fire"
+      - "i think i just fell in the void"
+      - "who took my iron"
+      - "1v1 me at spawn, no armour"
+      - "i may have broken the farm"
+      - "why is my screen upside down"
+
+  fake-death:
+    enabled: true
+    duration-seconds: 0
+    # Message shown to everyone except the target, who instead gets the red respawn screen.
+    broadcast: "&7{player} &7was blown up by a creeper"
+    # Tint the target's screen red for a moment.
+    red-screen: true
+    sound: ENTITY_PLAYER_HURT
+
+  fake-login:
+    enabled: true
+    duration-seconds: 0
+    # Emitted only when the target is NOT on the server, so it can never contradict
+    # the real join message. Pair with an alt account or a scheduled task.
+    login-message: "&e{player} joined the game"
+    logout-message: "&e{player} left the game"
+
+  fake-weather:
+    enabled: true
+    duration-seconds: 10
+    # RAIN, THUNDER or CLEAR, shown only to the target.
+    weather: THUNDER
+    sound: ENTITY_LIGHTNING_BOLT_THUNDER
+
+  arrow-rain:
+    enabled: true
+    duration-seconds: 5
+    # Arrows per second.
+    per-second: 6
+    # Arrows deal no damage and cannot be picked up. Leave this false.
+    damage: false
+    # Arrows stick in the ground around the target for a moment.
+    sticky: true
+
+  hotbar-shuffle:
+    enabled: true
+    duration-seconds: 4
+    # Cosmetic only: your real inventory is never touched, no packet claims otherwise.
+    # Shows a fake "inventory sorted" toast plus shuffle sounds.
+    show-toast: true
+    sound: UI_BUTTON_CLICK
+
+  wrong-block:
+    enabled: true
+    duration-seconds: 6
+    # Fake-replace nearby blocks in the target's client; the server world is untouched
+    # and everything is restored when the effect ends.
+    radius: 2
+    # How often to keep the illusion alive, in ticks.
+    interval-ticks: 20
+    # Blocks the illusion may pick from.
+    blocks:
+      - TNT
+      - DIAMOND_BLOCK
+      - SPONGE
+      - CAKE
+      - SLIME_BLOCK
+      - BEDROCK

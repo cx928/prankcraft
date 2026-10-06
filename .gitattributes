@@ -1,0 +1,22 @@
+# Normalise line endings on commit, check out native per platform.
+* text=auto eol=lf
+
+# Windows scripts must stay CRLF so they run from a Windows checkout.
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Shell and Gradle scripts must stay LF.
+*.sh text eol=lf
+gradlew text eol=lf
+
+# Binary - never touch these.
+*.jar binary
+*.png binary
+*.zip binary
+*.lzma binary
+gradle-wrapper.jar binary
+
+# Keep diffs readable for generated-ish files.
+gradle.lockfile -diff
+*.log -diff

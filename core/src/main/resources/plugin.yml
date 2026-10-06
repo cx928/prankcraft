@@ -1,0 +1,101 @@
+name: PrankCraft
+version: ${project.version}
+main: com.prankcraft.PrankCraftPlugin
+api-version: '1.16'
+author: PrankCraft
+description: Consent-gated, audit-logged prank toolkit for server operators. Cosmetic effects only - nothing can harm, move or rob a player.
+website: https://github.com/your-org/prankcraft
+softdepend:
+  - PlaceholderAPI
+  - WorldGuard
+commands:
+  prank:
+    description: Fire a prank at somebody who agreed to it, and manage your own consent settings.
+    usage: /prank help
+    aliases:
+      - pranks
+  prankcraft:
+    description: Operator control for prank effects, fake-TNT sequencing and the audit log.
+    usage: /prankcraft help
+    aliases:
+      - pc
+      - prankadmin
+  prankconsent:
+    description: Staff view and override of prank consent records.
+    usage: /prankconsent help
+    aliases:
+      - pconsent
+permissions:
+  prankcraft.*:
+    description: Everything PrankCraft offers.
+    default: op
+    children:
+      prankcraft.admin: true
+      prankcraft.consent.admin: true
+      prankcraft.consent.manage: true
+      prankcraft.consent.bypass: true
+      prankcraft.notify: true
+      prankcraft.effect.*: true
+  prankcraft.effect.*:
+    description: Fire every prank effect.
+    default: op
+    children:
+      prankcraft.effect.jumpscare: true
+      prankcraft.effect.faketnt: true
+      prankcraft.effect.phantom: true
+      prankcraft.effect.screenshake: true
+      prankcraft.effect.fakechat: true
+      prankcraft.effect.fakedeath: true
+      prankcraft.effect.fakelogin: true
+      prankcraft.effect.weather: true
+      prankcraft.effect.arrowrain: true
+      prankcraft.effect.shuffle: true
+      prankcraft.effect.wrongblock: true
+  prankcraft.admin:
+    description: Operator command - fake-TNT control, audit viewer, reload.
+    default: op
+  prankcraft.consent.admin:
+    description: Inspect and override other players' consent records, including force-fire.
+    default: op
+  prankcraft.consent.manage:
+    description: Allows a player to change their own consent settings.
+    default: true
+  prankcraft.consent.bypass:
+    description: This player can never be pranked, by anyone, even with force. Grant it on request.
+    default: false
+  prankcraft.notify:
+    description: Receive staff notifications when a prank fires.
+    default: op
+  prankcraft.effect.jumpscare:
+    description: Particle burst and mob scream.
+    default: op
+  prankcraft.effect.faketnt:
+    description: Fake TNT world - always cosmetic, never damages blocks.
+    default: op
+  prankcraft.effect.phantom:
+    description: Invisible footsteps.
+    default: op
+  prankcraft.effect.screenshake:
+    description: Screen wobble via offset titles.
+    default: op
+  prankcraft.effect.fakechat:
+    description: Print a configured line as if the target said it.
+    default: op
+  prankcraft.effect.fakedeath:
+    description: Fake death message.
+    default: op
+  prankcraft.effect.fakelogin:
+    description: Fake join/leave line.
+    default: op
+  prankcraft.effect.weather:
+    description: Client-side thunderstorm.
+    default: op
+  prankcraft.effect.arrowrain:
+    description: Harmless arrow rain.
+    default: op
+  prankcraft.effect.shuffle:
+    description: Cosmetic hotbar shuffle.
+    default: op
+  prankcraft.effect.wrongblock:
+    description: Client-side block swap.
+    default: op

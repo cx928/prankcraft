@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.prankcraft</groupId>
+    <artifactId>prankcraft-parent</artifactId>
+    <version>1.0.0</version>
+  </parent>
+
+  <artifactId>prankcraft-core</artifactId>
+  <packaging>jar</packaging>
+  <name>PrankCraft core</name>
+
+  <dependencies>
+    <dependency>
+      <groupId>io.papermc.paper</groupId>
+      <artifactId>paper-api</artifactId>
+      <version>${paper.api.version}</version>
+      <scope>provided</scope>
+    </dependency>
+
+    <!--
+      Tests cover the two rules that must not silently regress: the consent gate and the
+      impersonation guardrail. Both are deliberately free of Bukkit dependencies so they can be
+      unit tested without a server; the end-to-end suite covers the rest against a live client.
+    -->
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <version>5.10.2</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>3.2.5</version>
+      </plugin>
+    </plugins>
+    <resources>
+      <!--
+        plugin.yml carries ${project.version}. Without this filter the placeholder ships
+        verbatim and the server reports the version as the literal string "${project.version}"
+        - which is exactly what the first smoke test on Paper 1.21.11 caught.
+      -->
+      <resource>
+        <directory>src/main/resources</directory>
+        <filtering>true</filtering>
+        <includes>
+          <include>plugin.yml</include>
+        </includes>
+      </resource>
+      <resource>
+        <directory>src/main/resources</directory>
+        <filtering>false</filtering>
+        <excludes>
+          <exclude>plugin.yml</exclude>
+        </excludes>
+      </resource>
+    </resources>
+  </build>
+</project>

@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>com.prankcraft</groupId>
+  <artifactId>prankcraft-parent</artifactId>
+  <version>1.0.0</version>
+  <packaging>pom</packaging>
+
+  <name>PrankCraft</name>
+  <description>Server-owner prank toolkit for Paper. Consent-gated, audit-logged, zero real damage.</description>
+
+  <!--
+    Two independent builds live in this repository:
+
+      prankcraft/            <- this reactor: the Paper plugin (core + paper)
+      prankcraft/forge-mod/  <- a separate build for the Forge mod
+
+    The Forge module is intentionally NOT a reactor module: it needs the ForgeGradle
+    toolchain and its own Minecraft dependency download, and nobody should have to fetch a
+    Minecraft server jar just to build the Paper plugin. See forge-mod/README.md.
+  -->
+  <modules>
+    <module>core</module>
+    <module>paper</module>
+  </modules>
+
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+    <maven.compiler.release>17</maven.compiler.release>
+    <paper.api.version>1.21.11-R0.1-SNAPSHOT</paper.api.version>
+  </properties>
+
+  <repositories>
+    <repository>
+      <id>papermc</id>
+      <url>https://repo.papermc.io/repository/maven-public/</url>
+    </repository>
+    <repository>
+      <id>spigot-repo</id>
+      <url>https://hub.spigotmc.org/nexus/content/repositories/snapshots/</url>
+    </repository>
+  </repositories>
+
+  <build>
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-compiler-plugin</artifactId>
+          <version>3.13.0</version>
+          <configuration>
+            <release>${maven.compiler.release}</release>
+            <encoding>UTF-8</encoding>
+            <!--
+              -Xlint:all, minus two categories that are deliberate here.
+
+              This plugin compiles against the newest Paper API but must RUN on 1.16, so it
+              consistently uses the oldest API that exists on every supported version: ChatColor
+              and the string-based sendTitle/sendActionBar instead of Adventure Components,
+              openAnvil + setTitle for the throwaway prank window, and a few removal-marked
+              constants. Those are exactly the deprecated members; the modern replacements do not
+              exist on 1.16. Suppressing only those two categories keeps the build readable while
+              leaving every other lint category - including unchecked casts in the cross-version
+              reflection - audible.
+            -->
+            <compilerArgs>
+              <arg>-Xlint:all,-deprecation,-removal</arg>
+            </compilerArgs>
+          </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-jar-plugin</artifactId>
+          <version>3.4.2</version>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+  </build>
+</project>

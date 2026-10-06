@@ -1,0 +1,18 @@
+// PrankCraft Forge module - a standalone build.
+//
+// This directory is deliberately NOT part of the parent Maven reactor. ForgeGradle
+// rewrites its own module metadata, resolves a patched Minecraft artifact and needs a
+// Gradle daemon; none of that plays nicely with the Paper module's Maven build. Keeping
+// the two builds apart means a broken Forge dependency can never turn the Paper plugin
+// red, and vice versa.
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        maven {
+            name = 'MinecraftForge'
+            url = 'https://maven.minecraftforge.net/'
+        }
+    }
+}
+
+rootProject.name = 'prankcraft-forge'
