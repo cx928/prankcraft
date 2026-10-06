@@ -12,6 +12,8 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
@@ -44,13 +46,27 @@ public final class ConsentCommand implements CommandExecutor, org.bukkit.command
             return true;
         }
 
+        // Classic switch statement rather than an arrow-form switch: Java 8 compatibility for the
+        // legacy builds, which share this source file.
         switch (args[0].toLowerCase(Locale.ROOT)) {
-            case "info" -> info(sender, args);
-            case "force" -> force(sender, args);
-            case "grant" -> grant(sender, args, true);
-            case "revoke" -> grant(sender, args, false);
-            case "clear" -> clear(sender, args);
-            default -> usage(sender);
+            case "info":
+                info(sender, args);
+                break;
+            case "force":
+                force(sender, args);
+                break;
+            case "grant":
+                grant(sender, args, true);
+                break;
+            case "revoke":
+                grant(sender, args, false);
+                break;
+            case "clear":
+                clear(sender, args);
+                break;
+            default:
+                usage(sender);
+                break;
         }
         return true;
     }
@@ -90,7 +106,7 @@ public final class ConsentCommand implements CommandExecutor, org.bukkit.command
         // A named player is the normal case because the record should carry a real identity.
         // The console is also accepted - it is still attributed as "console" in the audit log,
         // and refusing it would make the force path impossible to script or test.
-        Player actor = sender instanceof Player p ? p : null;
+        Player actor = sender instanceof Player ? (Player) sender : null;
         if (actor != null) {
             Text.prefixed(sender, "&eForcing &f" + args[2] + " &eat &f" + target.getName()
                     + " &ewithout consent. This is logged.");
@@ -190,11 +206,13 @@ public final class ConsentCommand implements CommandExecutor, org.bukkit.command
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (!sender.hasPermission(PERMISSION)) {
-            return List.of();
+            return Collections.emptyList();
         }
         List<String> out = new ArrayList<>();
         if (args.length == 1) {
-            out.addAll(List.of("info", "grant", "revoke", "clear", "force"));
+            // Arrays.asList, not List.of: Java 9+ only, and this source is shared with the
+            // legacy builds that run on Java 8 servers.
+            out.addAll(Arrays.asList("info", "grant", "revoke", "clear", "force"));
         } else if (args.length == 2) {
             for (Player p : Bukkit.getOnlinePlayers()) {
                 out.add(p.getName());

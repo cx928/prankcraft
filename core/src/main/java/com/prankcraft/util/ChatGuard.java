@@ -50,6 +50,9 @@ public final class ChatGuard {
 
     /** True when the sanitiser would have changed something. Useful for warnings and tests. */
     public static boolean isSuspicious(String input) {
-        return input != null && !sanitise(input).equals(input.strip());
+        // trim(), not strip(): String.strip is Java 11+, and this source is shared with the legacy
+        // builds that must run on Java 8 servers. The sanitised output has already had control
+        // characters removed, so trim and strip agree on everything that can reach this point.
+        return input != null && !sanitise(input).equals(input.trim());
     }
 }

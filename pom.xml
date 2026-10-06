@@ -27,6 +27,30 @@
     <module>paper</module>
   </modules>
 
+  <profiles>
+    <!--
+      Compiles the SAME shared sources against the oldest supported API (Spigot 1.12.2) with a
+      Java 8 target.
+
+      This is the portability guard rail for the legacy versions, and it is why the shared source
+      contains no records, no switch expressions and no pattern variables: those are all Java 16+
+      features, and 1.12.2 servers run Java 8.
+
+      It is a profile rather than a default module on purpose. The 1.12.2 API predates
+      org.bukkit.block.data (1.13), AbstractArrow and PickupStatus (1.14) and Player#sendActionBar
+      (1.16), so making the legacy target fully compile is real adapter work, not a build tweak.
+      Until that work is done this must not be able to turn the normal build red.
+
+        mvn -Plegacy-check compile
+    -->
+    <profile>
+      <id>legacy-check</id>
+      <modules>
+        <module>legacy</module>
+      </modules>
+    </profile>
+  </profiles>
+
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>

@@ -152,8 +152,10 @@ public final class PrankCraftPlugin extends JavaPlugin {
             return;
         }
         command.setExecutor(executor);
-        if (executor instanceof org.bukkit.command.TabCompleter completer) {
-            command.setTabCompleter(completer);
+        // Plain instanceof cast rather than a pattern variable: this source is shared with the
+        // legacy builds that must run on Java 8 servers.
+        if (executor instanceof org.bukkit.command.TabCompleter) {
+            command.setTabCompleter((org.bukkit.command.TabCompleter) executor);
         }
     }
 

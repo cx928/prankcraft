@@ -385,6 +385,38 @@ Bukkit 的 `getConfig()` 每次调用都要走一遍配置路径并做类型转�
 
 编译用 `-Xlint:all,-deprecation,-removal`。只关这两类是**故意的**：插件编译对着最新 Paper API，但要在 1.16 上跑，所以一律使用"每个支持版本都存在"的那套最老 API —— `ChatColor`、字符串版 `sendTitle`/`sendActionBar`、`openAnvil + setTitle`。它们的现代替代品在 1.16 上**根本不存在**。其余所有 lint 类别（包括跨版本反射里的 unchecked）都保持打开，当前编译**零警告**。
 
+### 多版本：共享源码为什么不用 record / switch 表达式
+
+要支持 1.12.2 这种老服务端，产物必须能跑在 **Java 8** 上，而 record（Java 16）、switch 表达式（Java 14）、`instanceof` 模式变量（Java 16）、`List.of`（Java 9）、`String.strip`（Java 11）在 Java 8 上要么编不过、要么加载就 `UnsupportedClassVersionError`。
+
+所以共享源码里**一个都没有**。这不是风格问题，是硬约束。已经做的替换：
+
+| 原来（Java 9-16） | 现在（Java 8 可用） | 处数 |
+|---|---|---|
+| `record` | 普通 final 类 + 访问器 | 2 |
+| switch 表达式 / `case a, b ->` | 传统 switch + `break` / fall-through | 4 |
+| `instanceof X x` 模式变量 | `instanceof X` + 显式强转 | 11 |
+| `List.of` / `Set.of` / `List.copyOf` | `Arrays.asList` / `Collections.emptyX` / `unmodifiableX` | 9 |
+| `String.strip()` | `String.trim()` | 1 |
+| `stream().filter().count()` | 普通 for 循环 | 1 |
+
+**验证方式是编译器，不是自觉**：`legacy/` 模块用**同一个源码目录**按 `--release 8` 编一遍。
+
+```bash
+mvn -Plegacy-check compile     # 便携性检查，默认不参与构建
+```
+
+它现在是 opt-in 的，因为 1.12.2 还有真实的 API 缺口没填（`org.bukkit.block.data` 是 1.13 才有的、`AbstractArrow` 是 1.14、`sendActionBar` 是 1.16）。明细和适配方案见 [legacy/README.md](legacy/README.md)。**现代构建不受影响**，21 项单测 + 14 项冒烟 + 23 项真机断言在重构后全部重跑通过。
+
+### 各平台版本线的边界（已核实）
+
+| 事实 | 核实方式 |
+|---|---|
+| Paper 的 API 仓库**从 1.17.1 起**，更老只能用 Spigot | `paper-api:1.16.5` 返回 404，`1.17.1` 返回 200 |
+| Spigot 提供 `1.12.2` / `1.16.5` API | hub.spigotmc.org 返回 200 |
+| **NeoForge 从 MC 1.20.2 才有**（`neoforge:20.2.x`），1.20.1 及以前只有 Forge | maven.neoforged.net 元数据，1782 个构建 |
+| NeoForge 用年份式版本号（`21.1.256` = MC 1.21.1，`26.3.0.51-beta` = 更新线） | 同上 |
+
 ---
 
 ## 自己编译

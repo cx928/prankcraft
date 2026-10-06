@@ -1,5 +1,6 @@
 package com.prankcraft.consent;
 
+import java.util.Collections;
 import java.util.Set;
 import java.util.UUID;
 
@@ -89,7 +90,9 @@ public final class ConsentRules {
         if (!requirePerTargetConsent) {
             return Decision.ALLOWED;
         }
-        Set<UUID> allowList = allowedByTarget == null ? Set.of() : allowedByTarget;
+        // Collections.emptySet rather than Set.of: this rule is shared with the legacy builds
+        // that must run on Java 8 servers, where Set.of does not exist.
+        Set<UUID> allowList = allowedByTarget == null ? Collections.<UUID>emptySet() : allowedByTarget;
         return allowList.contains(actor) || allowList.contains(wildcard)
                 ? Decision.ALLOWED
                 : Decision.NO_CONSENT;

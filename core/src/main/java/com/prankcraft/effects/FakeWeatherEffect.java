@@ -7,6 +7,7 @@ import com.prankcraft.util.Text;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -125,6 +126,8 @@ public final class FakeWeatherEffect implements PrankEffect {
 
     /** Unused hook kept for tab-completion of the configured weather values. */
     public static List<String> options() {
-        return List.of("RAIN", "THUNDER", "CLEAR");
+        // Arrays.asList, not List.of: Java 9+ only, and this source is shared with the legacy
+        // builds that must run on Java 8 servers.
+        return Arrays.asList("RAIN", "THUNDER", "CLEAR");
     }
 }

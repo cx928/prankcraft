@@ -58,9 +58,12 @@ public final class PrankSafetyListener implements Listener {
      */
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
     public void onArrowDamage(EntityDamageByEntityEvent event) {
-        if (!(event.getDamager() instanceof AbstractArrow arrow)) {
+        // Plain instanceof cast rather than a pattern variable: this source is shared with the
+        // legacy builds that must run on Java 8 servers.
+        if (!(event.getDamager() instanceof AbstractArrow)) {
             return;
         }
+        AbstractArrow arrow = (AbstractArrow) event.getDamager();
         if (ArrowRainEffect.isPrankArrow(arrow)) {
             event.setCancelled(true);
             arrow.remove();

@@ -8,6 +8,7 @@ import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.InventoryView;
 
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -20,7 +21,9 @@ import java.util.List;
  */
 public final class HotbarShuffleEffect implements PrankEffect {
 
-    private static final List<String> FAKE_TITLES = List.of(
+    // Arrays.asList, not List.of: Java 9+ only, and this source is shared with the legacy builds
+    // that must run on Java 8 servers.
+    private static final List<String> FAKE_TITLES = Arrays.asList(
             "Inventory sorted!",
             "Hotbar shuffled",
             "Sorting... 12/36",

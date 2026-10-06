@@ -218,7 +218,11 @@ public final class FakeTntManager {
     /** Every position currently faked for this player. */
     public List<Location> fakedPositions(Player target) {
         Session session = target == null ? null : sessions.get(target.getUniqueId());
-        return session == null ? List.of() : List.copyOf(session.positions);
+        // Collections.unmodifiableList, not List.copyOf: Java 10+, and this source is shared with
+        // the legacy builds that must run on Java 8 servers.
+        return session == null
+                ? Collections.<Location>emptyList()
+                : Collections.unmodifiableList(new ArrayList<>(session.positions));
     }
 
     /** True when this entity belongs to the trick and must never really explode. */
@@ -389,7 +393,10 @@ public final class FakeTntManager {
     private void pinFuses(Set<UUID> entityIds) {
         for (UUID entityId : entityIds) {
             Entity entity = plugin.getServer().getEntity(entityId);
-            if (entity instanceof TNTPrimed tnt) {
+            // Plain instanceof cast rather than a pattern variable: this source is shared with the
+            // legacy builds that must run on Java 8 servers.
+            if (entity instanceof TNTPrimed) {
+                TNTPrimed tnt = (TNTPrimed) entity;
                 tnt.setFuseTicks(Integer.MAX_VALUE);
                 tnt.setVelocity(new Vector(0, 0, 0));
             }
@@ -410,7 +417,8 @@ public final class FakeTntManager {
                 ownedEntities.remove(entityId);
                 continue;
             }
-            if (entity instanceof TNTPrimed tnt) {
+            if (entity instanceof TNTPrimed) {
+                TNTPrimed tnt = (TNTPrimed) entity;
                 tnt.setFuseTicks(Integer.MAX_VALUE);
                 tnt.setVelocity(new Vector(0, 0, 0));
             }

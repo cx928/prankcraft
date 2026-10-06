@@ -12,6 +12,8 @@ import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 
@@ -37,18 +39,43 @@ public final class PrankCommand implements CommandExecutor, TabCompleter {
         }
 
         String sub = args[0].toLowerCase(Locale.ROOT);
+        // Classic switch statement rather than an arrow-form switch: Java 8 compatibility for the
+        // legacy builds, which share this source file.
         switch (sub) {
-            case "help" -> help(sender, label);
-            case "list" -> list(sender, label);
-            case "status" -> status(sender);
-            case "allow" -> allow(sender, args);
-            case "deny" -> deny(sender, args);
-            case "yes" -> respond(sender, true);
-            case "no" -> respond(sender, false);
-            case "stop", "clear" -> stopSelf(sender);
-            case "reload" -> reload(sender);
-            case "random" -> random(sender, args);
-            default -> fire(sender, sub, args);
+            case "help":
+                help(sender, label);
+                break;
+            case "list":
+                list(sender, label);
+                break;
+            case "status":
+                status(sender);
+                break;
+            case "allow":
+                allow(sender, args);
+                break;
+            case "deny":
+                deny(sender, args);
+                break;
+            case "yes":
+                respond(sender, true);
+                break;
+            case "no":
+                respond(sender, false);
+                break;
+            case "stop":
+            case "clear":
+                stopSelf(sender);
+                break;
+            case "reload":
+                reload(sender);
+                break;
+            case "random":
+                random(sender, args);
+                break;
+            default:
+                fire(sender, sub, args);
+                break;
         }
         return true;
     }
@@ -56,10 +83,13 @@ public final class PrankCommand implements CommandExecutor, TabCompleter {
     // ------------------------------------------------------------------ effect firing
 
     private void fire(CommandSender sender, String effectId, String[] args) {
-        if (!(sender instanceof Player actor)) {
+        // Plain instanceof casts rather than pattern variables: this source is shared with the
+        // legacy builds that must run on Java 8 servers.
+        if (!(sender instanceof Player)) {
             Text.msg(sender, "&cOnly players can fire pranks. Console can use /prankcraft.");
             return;
         }
+        Player actor = (Player) sender;
         if (args.length < 2) {
             Text.prefixed(sender, "&cUsage: /prank " + effectId + " <player>");
             return;
@@ -74,10 +104,11 @@ public final class PrankCommand implements CommandExecutor, TabCompleter {
     }
 
     private void random(CommandSender sender, String[] args) {
-        if (!(sender instanceof Player actor)) {
+        if (!(sender instanceof Player)) {
             Text.msg(sender, "&cOnly players can fire pranks.");
             return;
         }
+        Player actor = (Player) sender;
         if (args.length < 2) {
             Text.prefixed(sender, "&cUsage: /prank random <player>");
             return;
@@ -99,10 +130,11 @@ public final class PrankCommand implements CommandExecutor, TabCompleter {
     // ------------------------------------------------------------------ consent
 
     private void allow(CommandSender sender, String[] args) {
-        if (!(sender instanceof Player self)) {
+        if (!(sender instanceof Player)) {
             Text.msg(sender, "&cConsent is per-player; run this in game.");
             return;
         }
+        Player self = (Player) sender;
         if (args.length < 2) {
             Text.prefixed(self, "&7Usage: &f/prank allow <player|*> &7- allow that player (or everyone) to prank you.");
             return;
@@ -127,10 +159,11 @@ public final class PrankCommand implements CommandExecutor, TabCompleter {
     }
 
     private void deny(CommandSender sender, String[] args) {
-        if (!(sender instanceof Player self)) {
+        if (!(sender instanceof Player)) {
             Text.msg(sender, "&cConsent is per-player; run this in game.");
             return;
         }
+        Player self = (Player) sender;
         if (args.length >= 2 && (args[1].equals("*") || args[1].equalsIgnoreCase("all"))) {
             plugin.consent().clear(self.getUniqueId());
             Text.prefixed(self, "&eYou will no longer be pranked by anyone.");
@@ -149,9 +182,10 @@ public final class PrankCommand implements CommandExecutor, TabCompleter {
     }
 
     private void respond(CommandSender sender, boolean approve) {
-        if (!(sender instanceof Player self)) {
+        if (!(sender instanceof Player)) {
             return;
         }
+        Player self = (Player) sender;
         int count = approve ? plugin.consent().approveAll(self.getUniqueId()) : plugin.consent().denyAll(self.getUniqueId());
         if (count == 0) {
             Text.prefixed(self, "&7You have no pending prank requests.");
@@ -163,10 +197,11 @@ public final class PrankCommand implements CommandExecutor, TabCompleter {
     }
 
     private void status(CommandSender sender) {
-        if (!(sender instanceof Player self)) {
+        if (!(sender instanceof Player)) {
             Text.msg(sender, "&7Consent data is per-player. Use /prankcraft consent <player> to inspect one.");
             return;
         }
+        Player self = (Player) sender;
         boolean optedIn = plugin.consent().isOptedIn(self.getUniqueId());
         Text.prefixed(self, "&7Pranks: " + (optedIn ? "&aenabled" : "&cdisabled"));
         StringBuilder allowed = new StringBuilder();
@@ -186,7 +221,8 @@ public final class PrankCommand implements CommandExecutor, TabCompleter {
     }
 
     private void stopSelf(CommandSender sender) {
-        if (sender instanceof Player self) {
+        if (sender instanceof Player) {
+            Player self = (Player) sender;
             plugin.tnt().clearFor(self);
             Text.prefixed(self, "&7Cleared any fake TNT illusion you were seeing.");
         }
@@ -209,7 +245,8 @@ public final class PrankCommand implements CommandExecutor, TabCompleter {
             if (!plugin.pranks().enabled(effect)) {
                 continue;
             }
-            boolean allowed = !(sender instanceof Player p) || p.hasPermission(effect.permission());
+            boolean allowed = !(sender instanceof Player)
+                    || ((Player) sender).hasPermission(effect.permission());
             Text.msg(sender, (allowed ? "&a" : "&8") + " /prank " + effect.id() + " <player> &7- " + effect.description());
         }
         Text.msg(sender, "&8&m--------------------------------");
@@ -231,12 +268,15 @@ public final class PrankCommand implements CommandExecutor, TabCompleter {
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         List<String> out = new ArrayList<>();
         if (args.length == 1) {
-            List<String> subs = new ArrayList<>(List.of("list", "status", "allow", "deny", "yes", "no", "random", "stop", "help"));
+            // Arrays.asList, not List.of: List.of is Java 9+, and this source is shared with the
+            // legacy builds that run on Java 8 servers.
+            List<String> subs = new ArrayList<>(Arrays.asList(
+                    "list", "status", "allow", "deny", "yes", "no", "random", "stop", "help"));
             if (sender.hasPermission("prankcraft.admin")) {
                 subs.add("reload");
             }
-            if (sender instanceof Player p) {
-                subs.addAll(plugin.pranks().usableBy(p));
+            if (sender instanceof Player) {
+                subs.addAll(plugin.pranks().usableBy((Player) sender));
             }
             return filter(subs, args[0]);
         }
@@ -250,7 +290,7 @@ public final class PrankCommand implements CommandExecutor, TabCompleter {
             }
             return filter(out, args[1]);
         }
-        return List.of();
+        return Collections.emptyList();
     }
 
     private static List<String> filter(List<String> options, String prefix) {

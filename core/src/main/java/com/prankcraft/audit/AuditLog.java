@@ -33,9 +33,62 @@ public final class AuditLog {
     private static final DateTimeFormatter DAY = DateTimeFormatter.ofPattern("yyyy-MM-dd");
     private static final int MEMORY_LIMIT = 200;
 
-    /** One recorded action. */
-    public record Entry(long millis, String actorName, UUID actorId, String targetName, UUID targetId,
-                        String effect, String detail) {
+    /**
+     * One recorded action.
+     *
+     * <p>Written as a plain immutable class rather than a {@code record} on purpose: this plugin
+     * has to load on servers running Java 8 (1.12.2, 1.16.5), and records are a Java 16 language
+     * feature. The compiler catches this immediately when the legacy targets are built, but only
+     * if the shared source stays Java 8 compatible - so it does.
+     */
+    public static final class Entry {
+        private final long millis;
+        private final String actorName;
+        private final UUID actorId;
+        private final String targetName;
+        private final UUID targetId;
+        private final String effect;
+        private final String detail;
+
+        public Entry(long millis, String actorName, UUID actorId, String targetName, UUID targetId,
+                     String effect, String detail) {
+            this.millis = millis;
+            this.actorName = actorName;
+            this.actorId = actorId;
+            this.targetName = targetName;
+            this.targetId = targetId;
+            this.effect = effect;
+            this.detail = detail;
+        }
+
+        public long millis() {
+            return millis;
+        }
+
+        public String actorName() {
+            return actorName;
+        }
+
+        public UUID actorId() {
+            return actorId;
+        }
+
+        public String targetName() {
+            return targetName;
+        }
+
+        public UUID targetId() {
+            return targetId;
+        }
+
+        public String effect() {
+            return effect;
+        }
+
+        public String detail() {
+            return detail;
+        }
+
         public String line() {
             return LocalDateTime.now().format(STAMP)
                     + " | actor=" + actorName + "(" + actorId + ")"
@@ -118,8 +171,8 @@ public final class AuditLog {
     }
 
     public static String describe(CommandSender sender) {
-        if (sender instanceof Player p) {
-            return p.getName();
+        if (sender instanceof Player) {
+            return ((Player) sender).getName();
         }
         return "console";
     }

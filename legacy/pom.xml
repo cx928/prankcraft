@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.prankcraft</groupId>
+    <artifactId>prankcraft-parent</artifactId>
+    <version>1.0.0</version>
+  </parent>
+
+  <artifactId>prankcraft-legacy</artifactId>
+  <packaging>jar</packaging>
+  <name>PrankCraft legacy (Spigot 1.12.2, Java 8)</name>
+
+  <!--
+    This module compiles the SAME sources as the modern Paper build, against the oldest API we
+    support, with Java 8 as the target.
+
+    It exists as a compile-time proof, not as a second implementation: if a shared source file
+    picks up a Java 9+ language feature, a Java 9+ standard-library call, or an API that only
+    exists on newer servers, this module stops building. That is the guard rail which keeps the
+    1.12.2 and 1.16.5 targets honest, and it costs one extra javac invocation.
+
+    Why Spigot and not Paper: Paper's API repository starts at 1.17.1. Everything older is Spigot.
+
+    Why the sources are pulled in by path rather than depending on prankcraft-core: the core
+    artefact is compiled against modern Paper, so compiling it again here against 1.12.2 is the
+    entire point. Building the same source twice, against two different APIs, is what proves the
+    source is actually portable.
+  -->
+  <build>
+    <sourceDirectory>${project.basedir}/../core/src/main/java</sourceDirectory>
+    <resources>
+      <resource>
+        <directory>${project.basedir}/../core/src/main/resources</directory>
+        <filtering>true</filtering>
+        <includes>
+          <include>plugin.yml</include>
+        </includes>
+      </resource>
+      <resource>
+        <directory>${project.basedir}/../core/src/main/resources</directory>
+        <filtering>false</filtering>
+        <excludes>
+          <exclude>plugin.yml</exclude>
+        </excludes>
+      </resource>
+    </resources>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.13.0</version>
+        <configuration>
+          <!-- Java 8: what a 1.12.2 server actually runs. -->
+          <release>8</release>
+          <encoding>UTF-8</encoding>
+          <compilerArgs>
+            <arg>-Xlint:all,-deprecation,-removal,-options</arg>
+          </compilerArgs>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.spigotmc</groupId>
+      <artifactId>spigot-api</artifactId>
+      <version>1.12.2-R0.1-SNAPSHOT</version>
+      <scope>provided</scope>
+    </dependency>
+  </dependencies>
+
+  <repositories>
+    <repository>
+      <id>spigot-snapshots</id>
+      <url>https://hub.spigotmc.org/nexus/content/repositories/snapshots/</url>
+      <snapshots>
+        <enabled>true</enabled>
+      </snapshots>
+    </repository>
+  </repositories>
+</project>

@@ -2,6 +2,7 @@ package com.prankcraft.commands;
 
 import com.prankcraft.PrankCraftPlugin;
 import com.prankcraft.audit.AuditLog;
+import com.prankcraft.prank.PrankEffect;
 import com.prankcraft.util.Text;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
@@ -10,6 +11,8 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 
@@ -41,13 +44,27 @@ public final class PrankAdminCommand implements CommandExecutor, org.bukkit.comm
             return true;
         }
 
+        // Classic switch statement rather than an arrow-form switch: Java 8 compatibility for the
+        // legacy builds, which share this source file.
         switch (args[0].toLowerCase(Locale.ROOT)) {
-            case "reload" -> reload(sender);
-            case "tnt" -> tnt(sender, args);
-            case "clear" -> clear(sender, args);
-            case "audit" -> audit(sender, args);
-            case "status" -> status(sender);
-            default -> usage(sender);
+            case "reload":
+                reload(sender);
+                break;
+            case "tnt":
+                tnt(sender, args);
+                break;
+            case "clear":
+                clear(sender, args);
+                break;
+            case "audit":
+                audit(sender, args);
+                break;
+            case "status":
+                status(sender);
+                break;
+            default:
+                usage(sender);
+                break;
         }
         return true;
     }
@@ -73,24 +90,34 @@ public final class PrankAdminCommand implements CommandExecutor, org.bukkit.comm
             return;
         }
 
+        // Multi-label cases fall through deliberately - the Java 8 equivalent of "case a, b ->".
         switch (action) {
-            case "show", "place" -> {
+            case "show":
+            case "place": {
                 int shown = plugin.tnt().fake(target, null);
                 Text.prefixed(sender, shown > 0
                         ? "&aShowing &f" + shown + "&a fake TNT block(s) to &f" + target.getName() + "&a."
                         : "&cNo believable floor spots found near &f" + target.getName() + "&c.");
+                break;
             }
-            case "fire", "boom", "detonate" -> {
+            case "fire":
+            case "boom":
+            case "detonate": {
                 boolean fired = plugin.tnt().detonate(target);
                 Text.prefixed(sender, fired
                         ? "&aDetonated the fake TNT for &f" + target.getName() + "&a."
                         : "&cNo fake TNT is currently shown to &f" + target.getName() + "&c.");
+                break;
             }
-            case "clear", "stop" -> {
+            case "clear":
+            case "stop": {
                 plugin.tnt().clearFor(target);
                 Text.prefixed(sender, "&eCleared the fake-TNT illusion for &f" + target.getName() + "&e.");
+                break;
             }
-            default -> Text.prefixed(sender, "&cUnknown action &f" + action + "&c. Use show, fire or clear.");
+            default:
+                Text.prefixed(sender, "&cUnknown action &f" + action + "&c. Use show, fire or clear.");
+                break;
         }
         plugin.audit().record(senderId(sender), target.getUniqueId(), "fake-tnt:" + action,
                 action + " issued from console/staff");
@@ -142,12 +169,22 @@ public final class PrankAdminCommand implements CommandExecutor, org.bukkit.comm
 
     private void status(CommandSender sender) {
         Text.prefixed(sender, "&7Version: &f" + plugin.getDescription().getVersion());
-        Text.prefixed(sender, "&7Consent gate: &f" + plugin.getConfig().getBoolean("consent.require-consent", true)
-                + " &7(per-target: " + plugin.getConfig().getBoolean("consent.require-per-target-consent", true) + ")");
-        Text.prefixed(sender, "&7Audit: &f" + plugin.getConfig().getBoolean("audit.enabled", true));
+        // Read from the cached snapshot, like every other hot path, so this cannot disagree with
+        // what the engine is actually enforcing.
+        Text.prefixed(sender, "&7Consent gate: &f" + plugin.config().requireConsent
+                + " &7(per-target: " + plugin.config().requirePerTargetConsent + ")");
+        Text.prefixed(sender, "&7Audit: &f" + plugin.config().auditEnabled);
         Text.prefixed(sender, "&7Active fake-TNT sessions: &f" + plugin.tnt().activeSessions());
-        Text.prefixed(sender, "&7Effects loaded: &f" + plugin.pranks().effects().size()
-                + " &7enabled: &f" + plugin.pranks().effects().stream().filter(plugin.pranks()::enabled).count());
+
+        int total = 0;
+        int enabled = 0;
+        for (PrankEffect effect : plugin.pranks().effects()) {
+            total++;
+            if (plugin.pranks().enabled(effect)) {
+                enabled++;
+            }
+        }
+        Text.prefixed(sender, "&7Effects loaded: &f" + total + " &7enabled: &f" + enabled);
     }
 
     private void usage(CommandSender sender) {
@@ -160,19 +197,21 @@ public final class PrankAdminCommand implements CommandExecutor, org.bukkit.comm
     }
 
     private static java.util.UUID senderId(CommandSender sender) {
-        return sender instanceof Player p ? p.getUniqueId() : null;
+        return sender instanceof Player ? ((Player) sender).getUniqueId() : null;
     }
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (!sender.hasPermission(PERMISSION)) {
-            return List.of();
+            return Collections.emptyList();
         }
         List<String> out = new ArrayList<>();
         if (args.length == 1) {
-            out.addAll(List.of("status", "tnt", "clear", "audit", "reload"));
+            // Arrays.asList, not List.of: Java 9+ only, and this source is shared with the
+            // legacy builds that run on Java 8 servers.
+            out.addAll(Arrays.asList("status", "tnt", "clear", "audit", "reload"));
         } else if (args.length == 2 && args[0].equalsIgnoreCase("tnt")) {
-            out.addAll(List.of("show", "fire", "clear"));
+            out.addAll(Arrays.asList("show", "fire", "clear"));
         } else if ((args.length == 3 && args[0].equalsIgnoreCase("tnt")) || (args.length == 2 && args[0].equalsIgnoreCase("clear"))) {
             out.add("*");
             for (Player p : Bukkit.getOnlinePlayers()) {

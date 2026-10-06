@@ -10,6 +10,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Deque;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -130,7 +131,11 @@ public final class ConsentManager {
 
     public Set<UUID> allowedFor(UUID target) {
         Set<UUID> set = allowed.get(target);
-        return set == null ? Set.of() : Set.copyOf(set);
+        // Collections/EnumSet rather than Set.of/Set.copyOf: Java 9+/10+ only, and this source is
+        // shared with the legacy builds that must run on Java 8 servers.
+        return set == null
+                ? Collections.<UUID>emptySet()
+                : Collections.unmodifiableSet(new HashSet<>(set));
     }
 
     /** The wildcard entry meaning "anyone on the server may prank me". */
@@ -150,7 +155,7 @@ public final class ConsentManager {
 
     public List<UUID> requestsFor(UUID target) {
         Deque<UUID> queue = pending.get(target);
-        return queue == null ? List.of() : new ArrayList<>(queue);
+        return queue == null ? Collections.<UUID>emptyList() : new ArrayList<>(queue);
     }
 
     /** Approves every pending request for {@code target}. Returns how many were approved. */

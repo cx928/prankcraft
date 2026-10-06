@@ -40,8 +40,26 @@ public final class PrankEngine {
      * <p>These used to be config reads: {@code enabled()} ran a string concat plus a config path
      * walk for every effect on every tab-completion keystroke and every {@code /prank list}, and
      * {@code duration()} repeated it inside the fire path. They are now two field reads.
+     *
+     * <p>A plain class rather than a {@code record}: this source is shared with the legacy
+     * targets that must run on Java 8 servers.
      */
-    private record Settings(boolean enabled, int durationSeconds) {
+    private static final class Settings {
+        private final boolean enabled;
+        private final int durationSeconds;
+
+        Settings(boolean enabled, int durationSeconds) {
+            this.enabled = enabled;
+            this.durationSeconds = durationSeconds;
+        }
+
+        boolean enabled() {
+            return enabled;
+        }
+
+        int durationSeconds() {
+            return durationSeconds;
+        }
     }
 
     private final Map<String, Settings> settings = new HashMap<>();
@@ -184,17 +202,29 @@ public final class PrankEngine {
     /** Human-readable explanation for a failed attempt. */
     public String explain(Result result, Player actor, Player target) {
         String name = target == null ? "that player" : target.getName();
-        return switch (result) {
-            case UNKNOWN_EFFECT -> "&cUnknown prank effect. Try &f/prank list&c.";
-            case DISABLED -> "&cThat effect is disabled in config.yml.";
-            case NO_PERMISSION -> "&cYou do not have permission to fire that effect.";
-            case NO_CONSENT -> target == null
-                    ? "&cThat player has not consented to pranks."
-                    : plugin.consent().denyReason(actor == null ? null : actor.getUniqueId(), target.getUniqueId());
-            case EXEMPT -> "&e" + name + " &cis protected and cannot be pranked at all.";
-            case SELF -> "&cPick somebody else - you cannot prank yourself.";
-            case VETOED -> "&cThat prank was blocked (another plugin or the server refused it).";
-            case OK -> "&aPrank fired at &f" + name + "&a.";
-        };
+        // A plain switch rather than a switch expression: Java 8 compatibility for the legacy
+        // builds, which share this source file.
+        switch (result) {
+            case UNKNOWN_EFFECT:
+                return "&cUnknown prank effect. Try &f/prank list&c.";
+            case DISABLED:
+                return "&cThat effect is disabled in config.yml.";
+            case NO_PERMISSION:
+                return "&cYou do not have permission to fire that effect.";
+            case NO_CONSENT:
+                return target == null
+                        ? "&cThat player has not consented to pranks."
+                        : plugin.consent().denyReason(actor == null ? null : actor.getUniqueId(),
+                                target.getUniqueId());
+            case EXEMPT:
+                return "&e" + name + " &cis protected and cannot be pranked at all.";
+            case SELF:
+                return "&cPick somebody else - you cannot prank yourself.";
+            case VETOED:
+                return "&cThat prank was blocked (another plugin or the server refused it).";
+            case OK:
+            default:
+                return "&aPrank fired at &f" + name + "&a.";
+        }
     }
 }
