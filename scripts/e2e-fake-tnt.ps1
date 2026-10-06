@@ -14,29 +14,123 @@
   Requires E:\...\mc-auto-player\node_modules (mineflayer). Exits non-zero on failure.
 #>
 param(
-    [string]$Root = 'E:\Documents\deepseek-harness\default-workspace',
+    # Workspace root, i.e. the directory that CONTAINS the repository. Empty means "derive it
+    # from this script's location" - see the layout note below.
+    [string]$Root = '',
     [int]$Port = 25599,
-    [string]$BotName = 'PrankTarget'
+    [string]$BotName = 'PrankTarget',
+    # Path to a Paper server jar. Optional - see Resolve-PaperJar below.
+    [string]$PaperJar = '',
+    # Optional: an explicit directory that has node_modules/mineflayer.
+    [string]$BotDir = ''
 )
 
 $ErrorActionPreference = 'Continue'
-$ServerDir = Join-Path $Root 'prankcraft-test-server'
-$BotDir = Join-Path $Root 'mc-auto-player'
-$pluginJar = Join-Path $Root 'prankcraft\paper\target\PrankCraft-1.0.0.jar'
-$paperJar = Join-Path $Root 'build-cache\paper-1.21.11-132.jar'
-$probeReport = Join-Path $ServerDir 'probe-report.json'
+
+# Layout is derived from this script's own location, so the harness runs from any clone:
+#   RepoRoot      = <repo>            (this script lives in <repo>/scripts/)
+#   WorkspaceRoot = parent of <repo>  ($Root is accepted as an alias for this)
+# The test server and the mineflayer probe client normally live OUTSIDE the repository, so that a
+# clone stays small and no server state is ever committed. Explicit paths always win.
+$repoRoot = Split-Path -Parent $PSScriptRoot
+if (-not $repoRoot) { throw 'Could not determine the repository root from $PSScriptRoot.' }
+$repoRoot = (Resolve-Path $repoRoot).Path
+$workspaceRoot = Split-Path -Parent $repoRoot
+if ($Root) { $workspaceRoot = (Resolve-Path $Root).Path }
+
+$pluginJar = Join-Path $repoRoot 'paper\target\PrankCraft-1.0.0.jar'
 $failures = [System.Collections.Generic.List[string]]::new()
+
+if (-not $ServerDir) {
+    $ServerDir = Join-Path $workspaceRoot 'prankcraft-test-server'
+}
+$probeReport = Join-Path $ServerDir 'probe-report.json'
+
+if (-not $BotDir) {
+    # The probe client needs mineflayer; prefer a checkout outside the repo, then inside it.
+    foreach ($candidate in @((Join-Path $workspaceRoot 'mc-auto-player'), (Join-Path $repoRoot 'mc-auto-player'))) {
+        if (Test-Path (Join-Path $candidate 'node_modules\mineflayer')) { $BotDir = $candidate; break }
+    }
+    if (-not $BotDir) { $BotDir = Join-Path $workspaceRoot 'mc-auto-player' }
+}
+
+if (-not (Test-Path $pluginJar)) {
+    throw "Built plugin not found at $pluginJar - run 'mvn clean install' first."
+}
+
+<#
+  Locates the Paper server jar. The jar is deliberately NOT in this repository: it is tens of
+  megabytes and belongs to PaperMC. A fresh clone supplies its own, via -PaperJar,
+  $env:PRANKCRAFT_PAPER_JAR, <ServerDir>\server.jar, or any paper-*.jar under build-cache/.
+#>
+function Resolve-PaperJar {
+    param([string]$Explicit)
+
+    if ($Explicit) {
+        if (Test-Path $Explicit) { return (Resolve-Path $Explicit).Path }
+        throw "Paper jar not found at the path given: $Explicit"
+    }
+    if ($env:PRANKCRAFT_PAPER_JAR) {
+        if (Test-Path $env:PRANKCRAFT_PAPER_JAR) { return (Resolve-Path $env:PRANKCRAFT_PAPER_JAR).Path }
+        throw "PRANKCRAFT_PAPER_JAR is set but does not exist: $env:PRANKCRAFT_PAPER_JAR"
+    }
+    $inServerDir = Join-Path $ServerDir 'server.jar'
+    if (Test-Path $inServerDir) { return (Resolve-Path $inServerDir).Path }
+    foreach ($dir in @((Join-Path $workspaceRoot 'build-cache'), (Join-Path $repoRoot 'build-cache'))) {
+        if (-not (Test-Path $dir)) { continue }
+        $found = @(Get-ChildItem $dir -Filter 'paper-*.jar' -ErrorAction SilentlyContinue |
+                   Sort-Object LastWriteTime -Descending)
+        if ($found.Count -gt 0) { return $found[0].FullName }
+    }
+    throw (@(
+        'Could not find a Paper server jar. Provide one of:',
+        '  -PaperJar <path>                        (this script''s parameter)',
+        '  $env:PRANKCRAFT_PAPER_JAR = <path>      (environment variable)',
+        "  $inServerDir                            (copy one in yourself)",
+        'Download the current build from https://papermc.io/downloads/paper'
+    ) -join [Environment]::NewLine)
+}
+
+$paperJar = Resolve-PaperJar -Explicit $PaperJar
+Write-Host "using Paper jar: $paperJar"
+
+if (-not (Test-Path (Join-Path $BotDir 'node_modules\mineflayer'))) {
+    throw (@(
+        'The live-client probe needs mineflayer, which is not installed at:',
+        "  $BotDir\node_modules\mineflayer",
+        'Point -BotDir at a directory that has it, or run the smoke test instead:',
+        '  pwsh -File scripts/smoke-test-paper.ps1'
+    ) -join [Environment]::NewLine)
+}
 
 function Fail([string]$m) { $script:failures.Add($m); Write-Host "FAIL: $m" -ForegroundColor Red }
 function Pass([string]$m) { Write-Host "ok  : $m" -ForegroundColor Green }
 
 # ---------------------------------------------------------------- stage
-Get-CimInstance Win32_Process -Filter "Name='java.exe'" |
-    Where-Object { $_.CommandLine -and $_.CommandLine -like '*server.jar nogui*' -and $_.ProcessId -notin @(16100, 11724) } |
-    ForEach-Object { Write-Host "stopping stale server pid=$($_.ProcessId)"; Stop-Process -Id $_.ProcessId -Force }
-Start-Sleep -Seconds 3
+# Stop a previous run of THIS harness only, identified by a marker file it writes into its own
+# server directory. Deliberately not a blanket "kill java.exe running server.jar": that would
+# take down an unrelated Minecraft server the operator happens to be running.
+$markerFile = Join-Path $ServerDir '.prankcraft-harness.pid'
+if (Test-Path $markerFile) {
+    $stale = (Get-Content $markerFile -ErrorAction SilentlyContinue | Select-Object -First 1)
+    if ($stale -and $stale -match '^\d+$') {
+        $staleProc = Get-Process -Id ([int]$stale) -ErrorAction SilentlyContinue
+        if ($staleProc -and $staleProc.ProcessName -eq 'java') {
+            Write-Host "stopping stale harness server pid=$stale"
+            Stop-Process -Id ([int]$stale) -Force -ErrorAction SilentlyContinue
+            Start-Sleep -Seconds 2
+        }
+    }
+    Remove-Item $markerFile -Force -ErrorAction SilentlyContinue
+}
+Start-Sleep -Seconds 1
 
-Copy-Item $paperJar (Join-Path $ServerDir 'server.jar') -Force
+# Stage the jar as <ServerDir>\server.jar. When the resolved jar IS already that file, copying it
+# onto itself would fail, so the copy is skipped in that case.
+$serverJar = Join-Path $ServerDir 'server.jar'
+if ((Resolve-Path $paperJar).Path -ne (Join-Path (Resolve-Path $ServerDir).Path 'server.jar')) {
+    Copy-Item $paperJar $serverJar -Force
+}
 Get-ChildItem (Join-Path $ServerDir 'plugins') -Filter '*.jar' | Remove-Item -Force
 Copy-Item $pluginJar (Join-Path $ServerDir 'plugins\') -Force
 Remove-Item $probeReport -Force -ErrorAction SilentlyContinue
@@ -94,6 +188,8 @@ $psi.UseShellExecute = $false
 $psi.CreateNoWindow = $true
 $server = [System.Diagnostics.Process]::Start($psi)
 Write-Host "server pid=$($server.Id)"
+# Record the pid so a later run can clean up after a crash, without guessing which java.exe is ours.
+Set-Content -Path $markerFile -Value $server.Id -ErrorAction SilentlyContinue
 
 $deadline = (Get-Date).AddSeconds(240)
 $ready = $false
@@ -279,6 +375,7 @@ Console 'stop'
 $deadline = (Get-Date).AddSeconds(90)
 while (-not $server.HasExited -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 500 }
 if ($server.HasExited) { Pass 'server stopped cleanly' } else { $server.Kill(); Fail 'server did not stop' }
+Remove-Item $markerFile -Force -ErrorAction SilentlyContinue
 
 Write-Host ""
 if ($failures.Count -gt 0) {

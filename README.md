@@ -5,6 +5,10 @@
 所有效果都是**客户端表现**：假 TNT、假爆炸、假天气、假死亡播报、假脚步、屏幕抖动、客户端方块替换。
 **没有任何一个效果能伤害、移动、传送或拿走别人的物品，也没有任何效果能接管别人的账号。**
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+![Minecraft](https://img.shields.io/badge/Minecraft-1.16%20--%201.21.x-brightgreen.svg)
+![Tests](https://img.shields.io/badge/tests-21%20unit%20%2B%20live%20E2E-brightgreen.svg)
+
 ---
 
 ## 目录
@@ -328,19 +332,31 @@ Forge 版同样审过，结论一致；那边还额外**明确拒绝**发送 `AD
 
 ### 复现
 
+两个脚本都用**当前仓库自己的位置**推导目录，不依赖任何硬编码路径，失败时返回非 0，可以直接接进 CI。
+
 ```powershell
 # 1. 编译 + 单元测试（21 项）
 mvn clean install
 
-# 2. 加载 / 命令冒烟测试（需要一个 Paper 服务端 jar）
+# 2. 加载 / 命令冒烟测试
 pwsh -File scripts/smoke-test-paper.ps1
 
-# 3. 全效果真机端到端测试（需要 mc-auto-player 的 node_modules 提供 mineflayer）
+# 3. 全效果真机端到端测试（需要 mineflayer）
 pwsh -File scripts/e2e-fake-tnt.ps1
 ```
 
-两个脚本都会自己拉起服务端、跑断言、关服，失败时返回非 0，可以直接接进 CI。
-E2E 脚本用的是一台独立实例（默认 25599 端口），不会碰你正在跑的服务器。
+**服务端 jar 不在仓库里**（几十 MB，而且那是 PaperMC 的东西，不是本项目的），所以第一次跑要先给它一个。脚本按下面顺序找：
+
+1. `-PaperJar <路径>` 参数
+2. 环境变量 `$env:PRANKCRAFT_PAPER_JAR`
+3. 测试服务端目录里的 `server.jar`
+4. 仓库旁边 `build-cache/` 里的任意 `paper-*.jar`
+
+从 https://papermc.io/downloads/paper 下载当前版本即可。测试服务端目录默认是"仓库的上一级"里的 `prankcraft-test-server`，也可以用 `-ServerDir` 指定 —— 放在仓库外是故意的：仓库保持干净，也不会把服务端状态提交进去。
+
+第 3 个脚本还需要一个装了 `mineflayer` 的目录当假人（默认找仓库旁边的 `mc-auto-player`，可用 `-BotDir` 指定）。没有的话它会在**开始之前**明确报错，而不是跑到一半失败。
+
+脚本只会清理**自己上一次运行留下的**服务端进程（靠写在测试目录里的 pid 文件识别），**不会**去杀你机器上其他 Minecraft 服务端。
 
 ---
 
