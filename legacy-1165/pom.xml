@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.prankcraft</groupId>
+    <artifactId>prankcraft-parent</artifactId>
+    <version>1.0.0</version>
+  </parent>
+
+  <artifactId>prankcraft-legacy-1165</artifactId>
+  <packaging>jar</packaging>
+  <name>PrankCraft classic (1.16.5-1.17.x, Java 8)</name>
+
+  <!--
+    The CLASSIC-target jar: same sources, compiled against Spigot 1.16.5, emitted as Java 8
+    bytecode.
+
+    Why this module has to exist at all: class files are versioned. A jar compiled for Java 17
+    cannot be loaded by a 1.16.5 server running Java 8 - the server rejects it outright with
+    UnsupportedClassVersionError before a single line of plugin code runs. Verified by running the
+    modern jar on a real Paper 1.16.5 server:
+
+      org.bukkit.plugin.InvalidPluginException: java.lang.UnsupportedClassVersionError:
+      com/prankcraft/PrankCraftPlugin has been compiled by a more recent version of the Java
+      Runtime (class file version 61.0), this version of the Java Runtime only recognizes class
+      file versions up to 52.0
+
+    So "support 1.16.5" is not a build tweak - it is a second artefact.
+
+    Scope, honestly: 1.16.5 through 1.17.x. 1.18+ servers run Java 17 and are served by the modern
+    jar. 1.12.2 needs the adapter work listed in ../legacy/README.md first.
+
+    Build:  mvn -Plegacy-check package   ->  target/PrankCraft-classic-1.0.0.jar
+  -->
+  <build>
+    <finalName>PrankCraft-classic-${project.version}</finalName>
+    <sourceDirectory>${project.basedir}/../core/src/main/java</sourceDirectory>
+    <resources>
+      <resource>
+        <directory>${project.basedir}/../core/src/main/resources</directory>
+        <filtering>true</filtering>
+        <includes>
+          <include>plugin.yml</include>
+        </includes>
+      </resource>
+      <resource>
+        <directory>${project.basedir}/../core/src/main/resources</directory>
+        <filtering>false</filtering>
+        <excludes>
+          <exclude>plugin.yml</exclude>
+        </excludes>
+      </resource>
+    </resources>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.13.0</version>
+        <configuration>
+          <!-- Java 8: what a 1.16.5 server may run, and therefore what this artefact must be. -->
+          <release>8</release>
+          <encoding>UTF-8</encoding>
+          <compilerArgs>
+            <arg>-Xlint:all,-deprecation,-removal,-options</arg>
+          </compilerArgs>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>3.4.2</version>
+      </plugin>
+    </plugins>
+  </build>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.spigotmc</groupId>
+      <artifactId>spigot-api</artifactId>
+      <version>1.16.5-R0.1-SNAPSHOT</version>
+      <scope>provided</scope>
+    </dependency>
+  </dependencies>
+
+  <repositories>
+    <repository>
+      <id>spigot-snapshots</id>
+      <url>https://hub.spigotmc.org/nexus/content/repositories/snapshots/</url>
+      <snapshots>
+        <enabled>true</enabled>
+      </snapshots>
+    </repository>
+  </repositories>
+</project>

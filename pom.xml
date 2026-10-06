@@ -47,6 +47,7 @@
       <id>legacy-check</id>
       <modules>
         <module>legacy</module>
+        <module>legacy-1165</module>
       </modules>
     </profile>
   </profiles>

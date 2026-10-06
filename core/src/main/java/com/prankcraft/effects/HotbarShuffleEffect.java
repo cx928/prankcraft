@@ -3,6 +3,7 @@ package com.prankcraft.effects;
 import com.prankcraft.PrankCraftPlugin;
 import com.prankcraft.fx.Fx;
 import com.prankcraft.prank.PrankEffect;
+import com.prankcraft.util.Compat;
 import com.prankcraft.util.Text;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
@@ -62,10 +63,13 @@ public final class HotbarShuffleEffect implements PrankEffect {
         String title = FAKE_TITLES.get((int) (Math.random() * FAKE_TITLES.size()));
         boolean toast = plugin.getConfig().getBoolean("pranks.hotbar-shuffle.show-toast", true);
 
+        boolean windowShown = false;
         if (toast) {
-            showFakeWindow(target, title);
+            windowShown = showFakeWindow(target, title);
         }
-        target.sendActionBar(Text.color("&e" + title));
+        // The action bar is the fallback on servers that have no anvil view, and a second cue
+        // everywhere else. Compat skips it silently when the server predates the API.
+        Text.actionBar(target, "&e" + title);
 
         String soundName = plugin.getConfig().getString("pranks.hotbar-shuffle.sound", "UI_BUTTON_CLICK");
         Sound sound = soundName == null ? null : Fx.sound(soundName);
@@ -75,28 +79,31 @@ public final class HotbarShuffleEffect implements PrankEffect {
         if (sound != null) {
             target.playSound(target.getLocation(), sound, 0.8f, 1.4f);
         }
-        return "title=\"" + title + "\" toast=" + toast;
+        return "title=\"" + title + "\" toast=" + toast + " window=" + windowShown;
     }
 
     /**
-     * Opens a throwaway anvil view purely to borrow its rename text box as a "toast" - the same
-     * trick vanilla uses for a ghost window. The view is closed on the next tick and contains
-     * nothing, so nothing can be taken from it.
+     * Opens a throwaway inventory view purely to borrow its rename text box as a "toast" - the
+     * same trick vanilla uses for a ghost window. The view is closed shortly afterwards and
+     * contains nothing, so nothing can be taken from it.
+     *
+     * <p>Routed through {@link Compat} because the anvil view is {@code openWorkbench} on 1.16.5
+     * and does not exist before 1.14. When the server cannot provide one, the effect carries on
+     * with its action-bar line and sound rather than failing.
+     *
+     * @return true when a window was actually opened
      */
-    private void showFakeWindow(Player target, String title) {
-        try {
-            InventoryView view = target.openAnvil(null, true);
-            if (view == null) {
-                return;
-            }
-            view.setTitle(title);
-            plugin.runSync(() -> {
-                if (target.isOnline() && target.getOpenInventory().equals(view)) {
-                    target.closeInventory();
-                }
-            }, 30L);
-        } catch (Throwable throwable) {
-            plugin.getLogger().fine("Fake shuffle window unavailable on this version: " + throwable.getMessage());
+    private boolean showFakeWindow(Player target, String title) {
+        InventoryView view = Compat.openAnvil(target);
+        if (view == null) {
+            return false;
         }
+        Compat.title(view, title);
+        plugin.runSync(() -> {
+            if (target.isOnline() && target.getOpenInventory().equals(view)) {
+                target.closeInventory();
+            }
+        }, 30L);
+        return true;
     }
 }

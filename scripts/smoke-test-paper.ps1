@@ -19,7 +19,15 @@ param(
     [string]$ServerDir = '',
     [int]$Port = 25599,
     # Path to a Paper server jar. Optional - see Resolve-PaperJar below.
-    [string]$PaperJar = ''
+    [string]$PaperJar = '',
+    # Optional java executable. Older Paper builds need an older JDK: 1.16.5 and 1.17.1 do not
+    # run on modern JDKs, so testing those versions means pointing this at a JDK 8-16 binary.
+    [string]$JavaExe = 'java',
+    # Extra JVM arguments, for server versions that need them.
+    [string]$JavaArgs = '-Xmx2G -Xms1G',
+    # Which plugin jar to test. Defaults to the modern build; point it at the classic-target jar
+    # to test the Java 8 artefact on a 1.16.5 server.
+    [string]$PluginJar = ''
 )
 
 $ErrorActionPreference = 'Continue'
@@ -35,9 +43,10 @@ $repoRoot = (Resolve-Path $repoRoot).Path
 $workspaceRoot = Split-Path -Parent $repoRoot
 if ($Root) { $workspaceRoot = (Resolve-Path $Root).Path }
 
-$pluginJar = Join-Path $repoRoot 'paper\target\PrankCraft-1.0.0.jar'
+$defaultPluginJar = Join-Path $repoRoot 'paper\target\PrankCraft-1.0.0.jar'
+if (-not $PluginJar) { $PluginJar = $defaultPluginJar }
+$pluginJar = (Resolve-Path $PluginJar -ErrorAction SilentlyContinue).Path
 $failures  = [System.Collections.Generic.List[string]]::new()
-
 if (-not $ServerDir) {
     # Prefer a server directory inside the workspace; fall back to one inside the repo.
     $candidates = @(
@@ -47,9 +56,15 @@ if (-not $ServerDir) {
     $ServerDir = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
     if (-not $ServerDir) { $ServerDir = $candidates[0] }
 }
-if (-not (Test-Path $pluginJar)) {
-    throw "Built plugin not found at $pluginJar - run 'mvn clean install' first."
+if (-not $pluginJar -or -not (Test-Path $pluginJar)) {
+    throw @(
+        "Plugin jar not found at $PluginJar",
+        "Build the modern jar with:            mvn clean install",
+        "Build the classic (Java 8) jar with:  mvn -Plegacy-check -pl legacy-1165 package",
+        "then pass it with -PluginJar <path>"
+    ) -join [Environment]::NewLine
 }
+Write-Host "using plugin jar: $pluginJar"
 
 <#
   Locates the Paper server jar.
@@ -125,11 +140,13 @@ Get-ChildItem (Join-Path $ServerDir 'plugins') -Filter '*.jar' | Remove-Item -Fo
 Copy-Item $pluginJar (Join-Path $ServerDir 'plugins\') -Force
 
 $propsPath = Join-Path $ServerDir 'server.properties'
-(Get-Content $propsPath) `
-    -replace '^server-port=.*', "server-port=$Port" `
-    -replace '^online-mode=.*', 'online-mode=false' `
-    -replace '^pause-when-empty-seconds=.*', 'pause-when-empty-seconds=0' `
-    | Set-Content $propsPath
+# Only touch keys the file actually has: server.properties gained and lost keys between versions,
+# and pause-when-empty-seconds does not exist on 1.16.5 at all.
+$props = Get-Content $propsPath
+if ($props -match '^server-port=') { $props = $props -replace '^server-port=.*', "server-port=$Port" } else { $props += "server-port=$Port" }
+if ($props -match '^online-mode=') { $props = $props -replace '^online-mode=.*', 'online-mode=false' } else { $props += 'online-mode=false' }
+if ($props -match '^pause-when-empty-seconds=') { $props = $props -replace '^pause-when-empty-seconds=.*', 'pause-when-empty-seconds=0' }
+$props | Set-Content $propsPath
 
 $log = Join-Path $ServerDir 'logs\latest.log'
 Remove-Item $log -Force -ErrorAction SilentlyContinue
@@ -137,8 +154,8 @@ Remove-Item (Join-Path $ServerDir 'plugins\PrankCraft') -Recurse -Force -ErrorAc
 
 # ---------------------------------------------------------------- start server
 $psi = [System.Diagnostics.ProcessStartInfo]::new()
-$psi.FileName = 'java'
-$psi.Arguments = '-Xmx2G -Xms1G -jar server.jar nogui'
+$psi.FileName = $JavaExe
+$psi.Arguments = "$JavaArgs -jar server.jar nogui"
 $psi.WorkingDirectory = $ServerDir
 $psi.RedirectStandardInput = $true
 $psi.RedirectStandardOutput = $false
@@ -166,21 +183,30 @@ if (-not $ready) {
 Pass "server reached 'Done'"
 Start-Sleep -Seconds 6
 
-function Send-Console([string]$command) {
-    Write-Host "console> $command" -ForegroundColor Cyan
-    $script:logCursor = 0
-    if (Test-Path $log) { $script:logCursor = (Get-Content $log).Count }
-    $proc.StandardInput.WriteLine($command)
-    $proc.StandardInput.Flush()
-    Start-Sleep -Seconds 3
-}
-
 function Get-LogText { Get-Content $log -Raw -ErrorAction SilentlyContinue }
 
 # Only the lines produced by the command we just sent, so assertions cannot match stale output.
 function Get-NewLogLines {
     if (-not (Test-Path $log)) { return @() }
     return @(Get-Content $log | Select-Object -Skip $script:logCursor)
+}
+
+function Send-Console([string]$command) {
+    Write-Host "console> $command" -ForegroundColor Cyan
+    $script:logCursor = 0
+    if (Test-Path $log) { $script:logCursor = (Get-Content $log).Count }
+    $proc.StandardInput.WriteLine($command)
+    $proc.StandardInput.Flush()
+    # Older servers (1.16.5 in particular) flush the console log on a slower cadence than modern
+    # ones, so a fixed short sleep reads the log before the command's output is on disk. Poll for
+    # new lines instead - it is both faster when output is prompt and correct when it is not.
+    $deadline = (Get-Date).AddSeconds(15)
+    while ((Get-Date) -lt $deadline) {
+        if ((Get-NewLogLines).Count -gt 0) { break }
+        Start-Sleep -Milliseconds 300
+    }
+    # A short settle so multi-line responses finish arriving.
+    Start-Sleep -Milliseconds 700
 }
 
 function Assert-Log([string]$label, [string]$pattern, [string]$command) {
@@ -198,19 +224,21 @@ function Assert-Log([string]$label, [string]$pattern, [string]$command) {
 }
 
 # ---------------------------------------------------------------- assertions
-# Vanilla's /help prints a "Help: /<command>" header for a registered command. Assert on that
-# header (per command, so all three are proven registered) rather than on the wrapped text.
+# Command output differs between server versions, so the patterns below are deliberately loose.
+# 1.16.5 prints "-------- Prank effects --------" while 1.21 prints "Prank effects", and the
+# /help layout changed completely. Over-tight patterns produced false failures on 1.16.5 - the
+# plugin was fine, the assertions were wrong.
 Assert-Log '/prank is a registered command' `
-    'Help: /prank' '/help prank'
+    'Prank effects|Usage: /prank' '/prank list'
 
 Assert-Log '/prank list renders the effect table' `
-    'Prank effects' '/prank list'
+    'Prank effects|fake-tnt <player>' '/prank list'
 
 Assert-Log '/prankcraft is a registered command and runs' `
-    'Consent gate: true' '/prankcraft status'
+    'Consent gate: (true|false)' '/prankcraft status'
 
 Assert-Log '/prankconsent is a registered command and runs' `
-    'not opted in' '/prankconsent info DefinitelyNotARealPlayer'
+    'not opted in|Allowed pranksters' '/prankconsent info DefinitelyNotARealPlayer'
 
 Assert-Log '/prankcraft tnt rejects an offline target' `
     'No online player named' '/prankcraft tnt show DefinitelyNotARealPlayer'

@@ -3,6 +3,7 @@ package com.prankcraft.commands;
 import com.prankcraft.PrankCraftPlugin;
 import com.prankcraft.prank.PrankEffect;
 import com.prankcraft.prank.PrankEngine;
+import com.prankcraft.util.Compat;
 import com.prankcraft.util.Text;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
@@ -194,8 +195,8 @@ public final class ConsentCommand implements CommandExecutor, org.bukkit.command
         if (online != null) {
             return online;
         }
-        OfflinePlayer cached = Bukkit.getOfflinePlayerIfCached(name);
-        return cached != null ? cached : Bukkit.getOfflinePlayer(name);
+        // Compat: Bukkit#getOfflinePlayerIfCached is Paper-only and absent on Spigot 1.16.5.
+        return Compat.lookupOfflinePlayer(name);
     }
 
     private static String name(OfflinePlayer player) {

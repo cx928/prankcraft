@@ -70,8 +70,15 @@ public final class Text {
         p.sendTitle(color(title), color(subtitle), fadeIn, stay, fadeOut);
     }
 
+    /**
+     * Shows a line above the hotbar.
+     *
+     * <p>Delegates to {@link Compat} because {@code Player#sendActionBar} does not exist on 1.16.5
+     * and earlier - verified against the real 1.16.5 API jar. Servers without it simply skip the
+     * line; the caller is expected to have said the same thing somewhere else.
+     */
     public static void actionBar(Player p, String raw) {
-        p.sendActionBar(color(raw));
+        Compat.actionBar(p, color(raw));
     }
 
     public static String joinNames(Collection<Player> players) {
